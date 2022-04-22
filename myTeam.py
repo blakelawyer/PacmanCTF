@@ -10,20 +10,20 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
-
+import capture
 from captureAgents import CaptureAgent
 import random, time, util
 from game import Directions
 import game
+
 
 #################
 # Team creation #
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'DummyAgent', second = 'DummyAgent'):
-  """
+               first='DummyAgent', second='DummyAgent'):
+    """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
   index numbers.  isRed is True if the red team is being created, and
@@ -38,22 +38,23 @@ def createTeam(firstIndex, secondIndex, isRed,
   behavior is what you want for the nightly contest.
   """
 
-  # The following line is an example only; feel free to change it.
-  return [eval(first)(firstIndex), eval(second)(secondIndex)]
+    # The following line is an example only; feel free to change it.
+    return [eval(first)(firstIndex), eval(second)(secondIndex)]
+
 
 ##########
 # Agents #
 ##########
 
 class DummyAgent(CaptureAgent):
-  """
+    """
   A Dummy agent to serve as an example of the necessary agent structure.
   You should look at baselineTeam.py for more details about how to
   create an agent as this is the bare minimum.
   """
 
-  def registerInitialState(self, gameState):
-    """
+    def registerInitialState(self, gameState):
+        """
     This method handles the initial setup of the
     agent to populate useful fields (such as what team
     we're on).
@@ -65,85 +66,123 @@ class DummyAgent(CaptureAgent):
     IMPORTANT: This method may run for at most 15 seconds.
     """
 
-    '''
+        '''
     Make sure you do not delete the following line. If you would like to
     use Manhattan distances instead of maze distances in order to save
     on initialization time, please take a look at
     CaptureAgent.registerInitialState in captureAgents.py.
     '''
-    CaptureAgent.registerInitialState(self, gameState)
+        CaptureAgent.registerInitialState(self, gameState)
 
-    '''
+        '''
     Your initialization code goes here, if you need any.
     '''
 
-
-
-  def chooseAction(self, gameState):
-    """
+    def chooseAction(self, gameState):
+        """
     Picks among actions randomly.
     """
-    actions = gameState.getLegalActions(self.index)
+        actions = gameState.getLegalActions(self.index)
 
-    '''
+        '''
     You should change this in your own agent.
     '''
-    self.aStarSearch(gameState, (30, 9))
-    quit()
-    return random.choice(actions)
+        if gameState.isOnRedTeam(self.index):
+            midpoint = 16
+        else:
+            midpoint = 17
+
+        collected_pellets = 0
+        # game.getRedFood()[node[0][0]][node[0][1]]:
+        x, y = gameState.getAgentPosition(self.index)
+        if gameState.getAgentState(self.index).numCarrying == 5:
+            path = self.aStarReturn(gameState, midpoint)
+        else:
+            path = self.aStarEat(gameState)
+        if path:
+            direction = path[0]
+            return direction
+        else:
+            return random.choice(actions)
 
 
-  def aStarSearch(self, game, goal):
+    def aStarEat(self, game):
 
-    print("Ghost: ", self.index)
-    print("Searching!")
-  # test
-    visited = []  # Visited list to prevent expanding a node multiple times.
-    astar_priority_queue = util.PriorityQueue()
-    astar_priority_queue.push((game.getAgentPosition(self.index), [], 0), 0)
+        visited = []  # Visited list to prevent expanding a node multiple times.
+        astar_priority_queue = util.PriorityQueue()
+        astar_priority_queue.push((game.getAgentPosition(self.index), [], 0), 0)
 
-    while not astar_priority_queue.isEmpty():
-      node = astar_priority_queue.pop()
-      current_position = node[0]
-      path = node[1]
-      print(current_position)
-      if current_position == goal:
-        print("Path found: ", path)
-        return path
-      else:
-        if current_position not in visited:
-          visited.append(current_position)
-          successors = []
-          legal_moves = game.getLegalActions(self.index)
-          for move in legal_moves:
-            successors.append(((game.generateSuccessor(self.index, move)), move))
-          for s in successors:
-            successor_position = s[0].getAgentPosition(self.index)
-            action = s[1]
-            if successor_position not in visited:
-              path_history = []
-              for step in path:
-                path_history.append(step)
-              path_history.append(action)
-              print("Adding: ", successor_position, action)
-              astar_priority_queue.push((successor_position, path_history, self.getMazeDistance(current_position, successor_position)), self.getMazeDistance(current_position, successor_position))
+        while not astar_priority_queue.isEmpty():
+            node = astar_priority_queue.pop()
+            current_position = node[0]
+            path = node[1]
+            # if current_position == goal:
+            if game.getRedFood()[node[0][0]][node[0][1]]:
+                return path
+            else:
+                if current_position not in visited:
+                    visited.append(current_position)
+                    successors = []
+                    x, y = node[0]
+                    if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+                        successors.append((x - 1, y, 'West'))
+                    if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                        successors.append((x + 1, y, 'East'))
+                    if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                        successors.append((x, y - 1, 'South'))
+                    if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                        successors.append((x, y + 1, 'North'))
+                    for s in successors:
+                        if (s[0], s[1]) not in visited:
+                            path_history = []
+                            path_history.extend(node[1])
+                            path_history.extend([s[2]])
+                            astar_priority_queue.push(((s[0], s[1]), path_history,
+                                                       self.getMazeDistance(current_position, (s[0], s[1]))),
+                                                      self.getMazeDistance(current_position, (s[0], s[1])))
 
-    print("Done!")
+    def aStarReturn(self, game, midpoint):
 
+        visited = []  # Visited list to prevent expanding a node multiple times.
+        astar_priority_queue = util.PriorityQueue()
+        astar_priority_queue.push((game.getAgentPosition(self.index), [], 0), 0)
 
+        while not astar_priority_queue.isEmpty():
+            node = astar_priority_queue.pop()
+            current_position = node[0]
+            path = node[1]
+            # if current_position == goal:
+            if node[0][0] == midpoint:
+                return path
+            else:
+                if current_position not in visited:
+                    visited.append(current_position)
+                    successors = []
+                    x, y = node[0]
+                    if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+                        successors.append((x - 1, y, 'West'))
+                    if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                        successors.append((x + 1, y, 'East'))
+                    if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                        successors.append((x, y - 1, 'South'))
+                    if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                        successors.append((x, y + 1, 'North'))
+                    for s in successors:
+                        if (s[0], s[1]) not in visited:
+                            path_history = []
+                            path_history.extend(node[1])
+                            path_history.extend([s[2]])
+                            astar_priority_queue.push(((s[0], s[1]), path_history,
+                                                       self.getMazeDistance(current_position, (s[0], s[1]))),
+                                                      self.getMazeDistance(current_position, (s[0], s[1])))
 
-  def getMazeDistance(self, pos1, pos2):
-    """
+    def getMazeDistance(self, pos1, pos2):
+        """
     Returns the distance between two points; These are calculated using the provided
     distancer object.
 
     If distancer.getMazeDistances() has been called, then maze distances are available.
     Otherwise, this just returns Manhattan distance.
     """
-    d = self.distancer.getDistance(pos1, pos2)
-    return d
-
-
-
-
-
+        d = self.distancer.getDistance(pos1, pos2)
+        return d
