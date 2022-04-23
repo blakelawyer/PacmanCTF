@@ -17,6 +17,7 @@ import random, time, util
 from game import Directions
 import game
 
+# Test
 
 def createTeam(firstIndex, secondIndex, isRed,
                first='OffenseAgent', second='DefenseAgent'):
