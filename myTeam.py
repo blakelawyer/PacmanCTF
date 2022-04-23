@@ -10,6 +10,7 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
 import capture
 from captureAgents import CaptureAgent
 import random, time, util
@@ -17,93 +18,16 @@ from game import Directions
 import game
 
 
-#################
-# Team creation #
-#################
-
 def createTeam(firstIndex, secondIndex, isRed,
-               first='DummyAgent', second='DummyAgent'):
-    """
-  This function should return a list of two agents that will form the
-  team, initialized using firstIndex and secondIndex as their agent
-  index numbers.  isRed is True if the red team is being created, and
-  will be False if the blue team is being created.
-
-  As a potentially helpful development aid, this function can take
-  additional string-valued keyword arguments ("first" and "second" are
-  such arguments in the case of this function), which will come from
-  the --redOpts and --blueOpts command-line arguments to capture.py.
-  For the nightly contest, however, your team will be created without
-  any extra arguments, so you should make sure that the default
-  behavior is what you want for the nightly contest.
-  """
-
-    # The following line is an example only; feel free to change it.
+               first='OffenseAgent', second='DefenseAgent'):
     return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
-##########
-# Agents #
-##########
+class ParentAgent(CaptureAgent):
 
-class DummyAgent(CaptureAgent):
-    """
-  A Dummy agent to serve as an example of the necessary agent structure.
-  You should look at baselineTeam.py for more details about how to
-  create an agent as this is the bare minimum.
-  """
-
-    def registerInitialState(self, gameState):
-        """
-    This method handles the initial setup of the
-    agent to populate useful fields (such as what team
-    we're on).
-
-    A distanceCalculator instance caches the maze distances
-    between each pair of positions, so your agents can use:
-    self.distancer.getDistance(p1, p2)
-
-    IMPORTANT: This method may run for at most 15 seconds.
-    """
-
-        '''
-    Make sure you do not delete the following line. If you would like to
-    use Manhattan distances instead of maze distances in order to save
-    on initialization time, please take a look at
-    CaptureAgent.registerInitialState in captureAgents.py.
-    '''
-        CaptureAgent.registerInitialState(self, gameState)
-
-        '''
-    Your initialization code goes here, if you need any.
-    '''
-
-    def chooseAction(self, gameState):
-        """
-    Picks among actions randomly.
-    """
-        actions = gameState.getLegalActions(self.index)
-
-        '''
-    You should change this in your own agent.
-    '''
-        if gameState.isOnRedTeam(self.index):
-            midpoint = 16
-        else:
-            midpoint = 17
-
-        collected_pellets = 0
-        # game.getRedFood()[node[0][0]][node[0][1]]:
-        x, y = gameState.getAgentPosition(self.index)
-        if gameState.getAgentState(self.index).numCarrying == 5:
-            path = self.aStarReturn(gameState, midpoint)
-        else:
-            path = self.aStarEat(gameState)
-        if path:
-            direction = path[0]
-            return direction
-        else:
-            return random.choice(actions)
+    def getMazeDistance(self, pos1, pos2):
+        d = self.distancer.getDistance(pos1, pos2)
+        return d
 
 
     def aStarEat(self, game):
@@ -141,6 +65,7 @@ class DummyAgent(CaptureAgent):
                                                        self.getMazeDistance(current_position, (s[0], s[1]))),
                                                       self.getMazeDistance(current_position, (s[0], s[1])))
 
+
     def aStarReturn(self, game, midpoint):
 
         visited = []  # Visited list to prevent expanding a node multiple times.
@@ -176,13 +101,62 @@ class DummyAgent(CaptureAgent):
                                                        self.getMazeDistance(current_position, (s[0], s[1]))),
                                                       self.getMazeDistance(current_position, (s[0], s[1])))
 
-    def getMazeDistance(self, pos1, pos2):
-        """
-    Returns the distance between two points; These are calculated using the provided
-    distancer object.
 
-    If distancer.getMazeDistances() has been called, then maze distances are available.
-    Otherwise, this just returns Manhattan distance.
-    """
-        d = self.distancer.getDistance(pos1, pos2)
-        return d
+class OffenseAgent(ParentAgent):
+
+    def registerInitialState(self, gameState):
+        CaptureAgent.registerInitialState(self, gameState)
+
+        if gameState.isOnRedTeam(self.index):
+            self.midpoint = 16
+        else:
+            self.midpoint = 17
+
+    def chooseAction(self, gameState):
+        actions = gameState.getLegalActions(self.index)
+
+
+        collected_pellets = 0
+        # game.getRedFood()[node[0][0]][node[0][1]]:
+        x, y = gameState.getAgentPosition(self.index)
+        if gameState.getAgentState(self.index).numCarrying == 5:
+            path = self.aStarReturn(gameState, self.midpoint)
+        else:
+            path = self.aStarEat(gameState)
+        if path:
+            direction = path[0]
+            return direction
+        else:
+            return random.choice(actions)
+
+
+class DefenseAgent(ParentAgent):
+
+    def registerInitialState(self, gameState):
+
+        CaptureAgent.registerInitialState(self, gameState)
+        # Initialize here.
+
+        if gameState.isOnRedTeam(self.index):
+            self.midpoint = 16
+        else:
+            self.midpoint = 17
+
+    def chooseAction(self, gameState):
+
+
+        actions = gameState.getLegalActions(self.index)
+        return random.choice(actions)
+
+        collected_pellets = 0
+        # game.getRedFood()[node[0][0]][node[0][1]]:
+        x, y = gameState.getAgentPosition(self.index)
+        if gameState.getAgentState(self.index).numCarrying == 5:
+            path = self.aStarReturn(gameState, self.midpoint)
+        else:
+            path = self.aStarEat(gameState)
+        if path:
+            direction = path[0]
+            return direction
+        else:
+            return random.choice(actions)
