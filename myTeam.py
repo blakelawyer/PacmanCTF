@@ -159,10 +159,13 @@ class OffenseAgent(ParentAgent):
 
     def chooseAction(self, gameState):
 
+        # Get agent  x and y for easy access later.
         x, y = gameState.getAgentPosition(self.index)
+        # Check if we're at the midpoint to move on to attacking.
         if x == self.midpoint:
             self.at_midpoint = True
 
+        # Get enemy indices and positions.
         if self.red:
             enemy_indices = gameState.getBlueTeamIndices()
         elif self.blue:
@@ -171,50 +174,54 @@ class OffenseAgent(ParentAgent):
         for i in enemy_indices:
             enemy_positions.append(gameState.getAgentPosition(i))
 
-
+        # If we're not at the midpoint and not chasing an enemy, go to the midpoint.
         if not self.at_midpoint and not self.chasing_enemy:
             path = self.aStarReturn(gameState, self.midpoint)
             if path:
                 direction = path[0]
                 return direction
         else:
+            # Otherwise, get the path the the closest pellet, and the enemies' path the the same pellet.
             path, closest_pellet = self.aStarEat(gameState)
             enemy1_path = self.aStar(gameState, enemy_positions[0], closest_pellet)
             enemy2_path = self.aStar(gameState, enemy_positions[1], closest_pellet)
+            # If we can make it to the pellet before the enemy, and we're not currently chasing, return that direction.
             if (len(path) < len(enemy1_path)) and (len(path) < len(enemy2_path)) and not self.chasing_enemy:
                 if path:
                     direction = path[0]
-                    print("Going for pellet!")
                     self.going_home = False
                     return direction
 
+            # Set chasing enemy to false, in case we finished the chase. If we're still chasing it'll be set back later.
             self.chasing_enemy = False
             if self.red:
+                # If we're on our own side..
                 if x <= 16:
+                    # Set False so we return to the midpoint afterwards.
                     self.at_midpoint = False
+                    # If an enemy is also on our side, go chase it since we're home.
                     for enemy in enemy_positions:
                         if enemy[0] <= 16:
                             path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)
-                            print("Going for enemy!")
                             self.chasing_enemy = True
                             self.going_home = False
                             if path:
                                 direction = path[0]
                                 return direction
                 else:
+                    # Return home if there's no pellet safe to eat or enemy
                     path = self.aStarReturn(gameState, self.midpoint)
-                    print("Going for home!")
                     self.going_home = True
                     if path:
                         direction = path[0]
                         return direction
+            # Same logic but for blue team.
             elif self.blue:
                 if x >= 17:
                     self.at_midpoint = False
                     for enemy in enemy_positions:
                         if enemy[0] >= 17:
                             path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)
-                            print("Going for enemy!")
                             self.chasing_enemy = True
                             self.going_home = False
                             if path:
@@ -222,13 +229,11 @@ class OffenseAgent(ParentAgent):
                                 return direction
                 else:
                     path = self.aStarReturn(gameState, self.midpoint)
-                    print("Going for home!")
                     self.going_home = True
                     if path:
                         direction = path[0]
                         return direction
-
-        print("Stopping!")
+        # Agent will stop if no other actions we're appropriate to take.
         return 'Stop'
 
 
