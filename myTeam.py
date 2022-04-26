@@ -56,14 +56,12 @@ class ParentAgent(CaptureAgent):
                     if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
                         successors.append((x, y + 1, 'North'))
                     for s in successors:
-                        if (s[0], s[1]) not in visited:
-                            path_history = []
-                            path_history.extend(node[1])
-                            path_history.extend([s[2]])
-                            astar_priority_queue.push(((s[0], s[1]), path_history,
-                                                       self.getMazeDistance(current_position, (s[0], s[1]))),
-                                                      self.getMazeDistance(current_position, (s[0], s[1])))
-
+                        path_history = []
+                        path_history.extend(node[1])
+                        path_history.extend([s[2]])
+                        astar_priority_queue.push(((s[0], s[1]), path_history,
+                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
+                                                  self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
     def aStarEat(self, game):
 
@@ -94,14 +92,12 @@ class ParentAgent(CaptureAgent):
                 if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
                     successors.append((x, y + 1, 'North'))
                 for s in successors:
-                    if (s[0], s[1]) not in visited:
-                        path_history = []
-                        path_history.extend(node[1])
-                        path_history.extend([s[2]])
-                        astar_priority_queue.push(((s[0], s[1]), path_history,
-                                                   self.getMazeDistance(current_position, (s[0], s[1]))),
-                                                  self.getMazeDistance(current_position, (s[0], s[1])))
-
+                    path_history = []
+                    path_history.extend(node[1])
+                    path_history.extend([s[2]])
+                    astar_priority_queue.push(((s[0], s[1]), path_history,
+                                               self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
+                                              self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
     def aStarReturn(self, game, midpoint):
 
@@ -130,13 +126,12 @@ class ParentAgent(CaptureAgent):
                     if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
                         successors.append((x, y + 1, 'North'))
                     for s in successors:
-                        if (s[0], s[1]) not in visited:
-                            path_history = []
-                            path_history.extend(node[1])
-                            path_history.extend([s[2]])
-                            astar_priority_queue.push(((s[0], s[1]), path_history,
-                                                       self.getMazeDistance(current_position, (s[0], s[1]))),
-                                                      self.getMazeDistance(current_position, (s[0], s[1])))
+                        path_history = []
+                        path_history.extend(node[1])
+                        path_history.extend([s[2]])
+                        astar_priority_queue.push(((s[0], s[1]), path_history,
+                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
+                                                  self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
 
     def depthFirstSearch(self, game, removed_vertex):
@@ -162,11 +157,10 @@ class ParentAgent(CaptureAgent):
                     if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
                         successors.append((x, y + 1, 'North'))
                     for s in successors:
-                        if (s[0], s[1]) not in visited:
-                            path_history = []
-                            path_history.extend(node[1])
-                            path_history.extend(s[2])
-                            dfs_stack.push(((s[0], s[1]), path_history))
+                        path_history = []
+                        path_history.extend(node[1])
+                        path_history.extend(s[2])
+                        dfs_stack.push(((s[0], s[1]), path_history))
         return visited
 
 
@@ -185,18 +179,17 @@ class OffenseAgent(ParentAgent):
         print(list(dominators.keys())[0])
         print(list(dominators.values())[0])
 
-        if gameState.isOnRedTeam(self.index):
+        if self.red:
             self.midpoint = 16
-            self.red = True
             self.blue = False
         else:
             self.midpoint = 17
-            self.red = False
             self.blue = True
 
         self.at_midpoint = False
         self.chasing_enemy = False
         self.going_home = False
+        self.foodcount = 0
 
     def chooseAction(self, gameState):
 
