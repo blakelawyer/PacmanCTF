@@ -139,10 +139,51 @@ class ParentAgent(CaptureAgent):
                                                       self.getMazeDistance(current_position, (s[0], s[1])))
 
 
+    def depthFirstSearch(self, game, removed_vertex):
+        visited = set()
+        dfs_stack = util.Stack()
+        dfs_stack.push((game.getAgentPosition(self.index), []))
+
+        while not dfs_stack.isEmpty():
+            node = dfs_stack.pop()
+            if node[0] == removed_vertex:
+                return visited
+            else:
+                if node[0] not in visited:
+                    visited.add(node[0])
+                    successors = []
+                    x, y = node[0]
+                    if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+                        successors.append((x - 1, y, 'West'))
+                    if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                        successors.append((x + 1, y, 'East'))
+                    if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                        successors.append((x, y - 1, 'South'))
+                    if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                        successors.append((x, y + 1, 'North'))
+                    for s in successors:
+                        if (s[0], s[1]) not in visited:
+                            path_history = []
+                            path_history.extend(node[1])
+                            path_history.extend(s[2])
+                            dfs_stack.push(((s[0], s[1]), path_history))
+        return visited
+
+
 class OffenseAgent(ParentAgent):
 
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
+
+        dominators = {}
+        original_vertices = self.depthFirstSearch(gameState, (-1, -1))
+        for vertex in original_vertices:
+            visited_vertices = self.depthFirstSearch(gameState, vertex)
+            difference = original_vertices.symmetric_difference(visited_vertices)
+            dominators[vertex] = difference
+
+        print(list(dominators.keys())[0])
+        print(list(dominators.values())[0])
 
         if gameState.isOnRedTeam(self.index):
             self.midpoint = 16
