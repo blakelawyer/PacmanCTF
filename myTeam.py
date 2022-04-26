@@ -154,6 +154,8 @@ class OffenseAgent(ParentAgent):
             self.blue = True
 
         self.at_midpoint = False
+        self.chasing_enemy = False
+        self.going_home = False
 
     def chooseAction(self, gameState):
 
@@ -170,7 +172,7 @@ class OffenseAgent(ParentAgent):
             enemy_positions.append(gameState.getAgentPosition(i))
 
 
-        if not self.at_midpoint:
+        if not self.at_midpoint and not self.chasing_enemy:
             path = self.aStarReturn(gameState, self.midpoint)
             if path:
                 direction = path[0]
@@ -179,38 +181,55 @@ class OffenseAgent(ParentAgent):
             path, closest_pellet = self.aStarEat(gameState)
             enemy1_path = self.aStar(gameState, enemy_positions[0], closest_pellet)
             enemy2_path = self.aStar(gameState, enemy_positions[1], closest_pellet)
-            if (len(path) < len(enemy1_path)) and (len(path) < len(enemy2_path)):
+            if (len(path) < len(enemy1_path)) and (len(path) < len(enemy2_path)) and not self.chasing_enemy:
                 if path:
                     direction = path[0]
                     print("Going for pellet!")
+                    self.going_home = False
                     return direction
 
-        if self.red:
-            if x <= 16:
-                for enemy in enemy_positions:
-                    if enemy[0] <= 16:
-                        path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)
-                        print("Going for enemy!")
-            else:
-                path = self.aStarReturn(gameState, self.midpoint)
-                print("Going for home!")
-                print(x, y)
-        elif self.blue:
-            if x >= 17:
-                for enemy in enemy_positions:
-                    if enemy[0] >= 17:
-                        path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)
-                        print("Going for enemy!")
-            else:
-                path = self.aStarReturn(gameState, self.midpoint)
-                print("Going for home!")
-                print(x, y)
+            self.chasing_enemy = False
+            if self.red:
+                if x <= 16:
+                    self.at_midpoint = False
+                    for enemy in enemy_positions:
+                        if enemy[0] <= 16:
+                            path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)
+                            print("Going for enemy!")
+                            self.chasing_enemy = True
+                            self.going_home = False
+                            if path:
+                                direction = path[0]
+                                return direction
+                else:
+                    path = self.aStarReturn(gameState, self.midpoint)
+                    print("Going for home!")
+                    self.going_home = True
+                    if path:
+                        direction = path[0]
+                        return direction
+            elif self.blue:
+                if x >= 17:
+                    self.at_midpoint = False
+                    for enemy in enemy_positions:
+                        if enemy[0] >= 17:
+                            path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)
+                            print("Going for enemy!")
+                            self.chasing_enemy = True
+                            self.going_home = False
+                            if path:
+                                direction = path[0]
+                                return direction
+                else:
+                    path = self.aStarReturn(gameState, self.midpoint)
+                    print("Going for home!")
+                    self.going_home = True
+                    if path:
+                        direction = path[0]
+                        return direction
 
-        if path:
-            direction = path[0]
-            return direction
-        else:
-            return 'Stop'
+        print("Stopping!")
+        return 'Stop'
 
 
 
