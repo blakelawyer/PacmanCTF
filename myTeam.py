@@ -169,15 +169,23 @@ class OffenseAgent(ParentAgent):
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
-        dominators = {}
+        self.points = []
+
+        for x in range(33):
+            for y in range(17):
+                if not gameState.hasWall(x, y):
+                    self.points.append((x, y))
+
+
+        self.dominators = {}
         original_vertices = self.depthFirstSearch(gameState, (-1, -1))
         for vertex in original_vertices:
             visited_vertices = self.depthFirstSearch(gameState, vertex)
             difference = original_vertices.symmetric_difference(visited_vertices)
-            dominators[vertex] = difference
+            self.dominators[vertex] = difference
 
-        print(list(dominators.keys())[0])
-        print(list(dominators.values())[0])
+        print(list(self.dominators.keys())[0])
+        print(list(self.dominators.values())[0])
 
         if self.red:
             self.midpoint = 16
@@ -219,6 +227,32 @@ class OffenseAgent(ParentAgent):
             path, closest_pellet = self.aStarEat(gameState)
             enemy1_path = self.aStar(gameState, enemy_positions[0], closest_pellet)
             enemy2_path = self.aStar(gameState, enemy_positions[1], closest_pellet)
+
+            """
+                        points_dominated = []
+                        points_in_range = []
+                        for p in self.points:
+                            if util.manhattanDistance(p, closest_pellet) < 3:
+                                points_in_range.append(p)
+                        for point in points_in_range:
+                            doms = self.dominators[point]
+                            for p in points_in_range:
+                                if p in doms and p != point:
+                                    points_dominated.append(p)
+
+                        trap = False
+                        #####
+                        point = points_dominated[0]
+                        dom1_path = self.aStar(gameState, enemy_positions[0], point)
+                        dom2_path = self.aStar(gameState, enemy_positions[1], point)
+                        if len(dom1_path) <= len(path) or len(dom2_path) <= len(path):
+                            trap = True
+
+                        if trap:
+                            print("It's a trap!")
+                        """
+
+
             # If we can make it to the pellet before the enemy, and we're not currently chasing, return that direction.
             if (len(path) < len(enemy1_path)) and (len(path) < len(enemy2_path)) and not self.chasing_enemy:
                 if path:
