@@ -109,7 +109,6 @@ class ParentAgent(CaptureAgent):
             node = astar_priority_queue.pop()
             current_position = node[0]
             path = node[1]
-            # if current_position == goal:
             if node[0][0] == midpoint:
                 return path
             else:
@@ -133,35 +132,114 @@ class ParentAgent(CaptureAgent):
                                                    self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
+    def breadthFirstSearch(self, game, start, goal):
+        visited = []
+        bfs_queue = util.Queue()
+        bfs_queue.push((start, []))
 
-    def depthFirstSearch(self, game, removed_vertex):
-        visited = set()
-        dfs_stack = util.Stack()
-        dfs_stack.push((game.getAgentPosition(self.index), []))
-
-        while not dfs_stack.isEmpty():
-            node = dfs_stack.pop()
-            if node[0] == removed_vertex:
-                return visited
-            else:
-                if node[0] not in visited:
-                    visited.add(node[0])
-                    successors = []
-                    x, y = node[0]
-                    if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+        while not bfs_queue.isEmpty():
+            node = bfs_queue.pop()
+            if node[0] == goal:
+                return True
+            if node[0] not in visited:
+                visited.append(node[0])
+                successors = []
+                x, y = node[0]
+                if x > 0:
+                    if game.hasWall(x - 1, y) and (x - 1, y) not in visited:
                         successors.append((x - 1, y, 'West'))
-                    if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                if x < 33:
+                    if game.hasWall(x + 1, y) and (x + 1, y) not in visited:
                         successors.append((x + 1, y, 'East'))
-                    if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                if y > 0:
+                    if game.hasWall(x, y - 1) and (x, y - 1) not in visited:
                         successors.append((x, y - 1, 'South'))
-                    if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                if y < 17:
+                    if game.hasWall(x, y + 1) and (x, y + 1) not in visited:
                         successors.append((x, y + 1, 'North'))
-                    for s in successors:
-                        path_history = []
-                        path_history.extend(node[1])
-                        path_history.extend(s[2])
-                        dfs_stack.push(((s[0], s[1]), path_history))
-        return visited
+                for s in successors:
+                    path_history = []
+                    path_history.extend(node[1])
+                    path_history.extend(s[2])
+                    bfs_queue.push(((s[0], s[1]), path_history))
+        return False
+
+    def deadends_and_chokepoints(self, game):
+        deadends = []
+        chokepoints = []
+        # For each point that's not a wall.
+        for x in range(33):
+            for y in range(17):
+                if not game.hasWall(x, y):
+                    wall_count = 0
+                    if game.hasWall(x - 1, y):
+                        wall_count += 1
+                    if game.hasWall(x + 1, y):
+                        wall_count += 1
+                    if game.hasWall(x, y - 1):
+                        wall_count += 1
+                    if game.hasWall(x, y + 1):
+                        wall_count += 1
+                    # If the point is surrounded by 3 walls, it's the start of a deadzone.
+                    if wall_count == 3:
+                        if (x, y) not in deadends:
+                            deadends.append((x, y))
+                        if not game.hasWall(x - 1, y):
+                            x2 = -1
+                            y2 = 0
+                        elif not game.hasWall(x + 1, y):
+                            x2 = 1
+                            y2 = 0
+                        elif not game.hasWall(x, y - 1):
+                            x2 = 0
+                            y2 = -1
+                        elif not game.hasWall(x, y + 1):
+                            x2 = 0
+                            y2 = 1
+                        num_open = 0
+                        a = x
+                        b = y
+                        # In the direction out of the deadzone, add to the DZ until enough open space.
+                        while num_open != 3:
+                            a = a + x2
+                            b = b + y2
+                            point = (a, b)
+                            w = 0
+                            if game.hasWall(point[0], point[1]):
+                                break
+                            if not game.hasWall(point[0] + 1, point[1]):
+                                w += 1
+                            if not game.hasWall(point[0] - 1, point[1]):
+                                w += 1
+                            if not game.hasWall(point[0], point[1] + 1):
+                                w += 1
+                            if not game.hasWall(point[0], point[1] - 1):
+                                w += 1
+                            if w >= 3:
+                                num_open = 3
+                            else:
+                                if point not in deadends and not game.hasWall(point[0], point[1]):
+                                    deadends.append(point)
+                if x != 0 and x != 33 and y != 0 and y != 17:
+                    start = 0
+                    end = 0
+                    # If the point is the potential start of a chokepoint.
+                    if game.hasWall(x, y + 1) and game.hasWall(x, y - 1):
+                        start = (x, y + 1)
+                        end = (x, y - 1)
+                    elif game.hasWall(x - 1, y) and game.hasWall(x + 1, y):
+                        start = (x - 1, y)
+                        end = (x + 1, y)
+                    if start != 0 and end != 0:
+                        if not game.hasWall(x, y):
+                            # Check for a path of walls that connects the position above and below the point.
+                            if self.breadthFirstSearch(game, start, end) and x != 1 and x != 32:
+                                chokepoints.append((x, y))
+        chokepoints2 = []
+        for cp in chokepoints:
+            if cp not in deadends:
+                chokepoints2.append(cp)
+        return deadends, chokepoints2
 
 
 class OffenseAgent(ParentAgent):
@@ -169,23 +247,14 @@ class OffenseAgent(ParentAgent):
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
-        self.points = []
+        # Find deadends and chokepoints.
+        self.deadends, self.chokepoints = self.deadends_and_chokepoints(gameState)
 
-        for x in range(33):
-            for y in range(17):
-                if not gameState.hasWall(x, y):
-                    self.points.append((x, y))
-
-
-        self.dominators = {}
-        original_vertices = self.depthFirstSearch(gameState, (-1, -1))
-        for vertex in original_vertices:
-            visited_vertices = self.depthFirstSearch(gameState, vertex)
-            difference = original_vertices.symmetric_difference(visited_vertices)
-            self.dominators[vertex] = difference
-
-        print(list(self.dominators.keys())[0])
-        print(list(self.dominators.values())[0])
+        # DEBUG: SHOW DEADENDS AND CHOKEPOINTS ON SCREEN
+        for deadend in self.deadends:
+            self.debugDraw(deadend, [1, 0, 0], clear=False)
+        for chokepoint in self.chokepoints:
+            self.debugDraw(chokepoint, [0, 1, 0], clear=False)
 
         if self.red:
             self.midpoint = 16
@@ -227,30 +296,6 @@ class OffenseAgent(ParentAgent):
             path, closest_pellet = self.aStarEat(gameState)
             enemy1_path = self.aStar(gameState, enemy_positions[0], closest_pellet)
             enemy2_path = self.aStar(gameState, enemy_positions[1], closest_pellet)
-
-            """
-                        points_dominated = []
-                        points_in_range = []
-                        for p in self.points:
-                            if util.manhattanDistance(p, closest_pellet) < 3:
-                                points_in_range.append(p)
-                        for point in points_in_range:
-                            doms = self.dominators[point]
-                            for p in points_in_range:
-                                if p in doms and p != point:
-                                    points_dominated.append(p)
-
-                        trap = False
-                        #####
-                        point = points_dominated[0]
-                        dom1_path = self.aStar(gameState, enemy_positions[0], point)
-                        dom2_path = self.aStar(gameState, enemy_positions[1], point)
-                        if len(dom1_path) <= len(path) or len(dom2_path) <= len(path):
-                            trap = True
-
-                        if trap:
-                            print("It's a trap!")
-                        """
 
 
             # If we can make it to the pellet before the enemy, and we're not currently chasing, return that direction.
