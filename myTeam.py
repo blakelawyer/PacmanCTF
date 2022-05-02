@@ -26,6 +26,20 @@ def createTeam(firstIndex, secondIndex, isRed,
 
 class ParentAgent(CaptureAgent):
 
+    def registerInitialState(self, gameState):
+        CaptureAgent.registerInitialState(self, gameState)
+
+        # Find deadends and chokepoints.
+        self.deadends, self.chokepoints = self.deadends_and_chokepoints(gameState)
+
+        if self.red:
+            self.midpoint = 16
+            self.blue = False
+        else:
+            self.midpoint = 17
+            self.blue = True
+
+
     def getMazeDistance(self, pos1, pos2):
         d = self.distancer.getDistance(pos1, pos2)
         return d
@@ -241,6 +255,7 @@ class ParentAgent(CaptureAgent):
         # For each point that's not a wall.
         for x in range(game.data.layout.width):
             for y in range(game.data.layout.height):
+                print(x, y)
                 if not game.hasWall(x, y):
                     wall_count = 0
                     if game.hasWall(x - 1, y):
@@ -316,10 +331,7 @@ class ParentAgent(CaptureAgent):
 class OffenseAgent(ParentAgent):
 
     def registerInitialState(self, gameState):
-        CaptureAgent.registerInitialState(self, gameState)
-
-        # Find deadends and chokepoints.
-        self.deadends, self.chokepoints = self.deadends_and_chokepoints(gameState)
+        ParentAgent.registerInitialState(self, gameState)
 
         # DEBUG: SHOW DEADENDS AND CHOKEPOINTS ON SCREEN
         for deadend in self.deadends:
@@ -328,12 +340,6 @@ class OffenseAgent(ParentAgent):
             self.debugDraw(chokepoint, [0, 1, 0], clear=False)
 
         # Set the midpoint depending on color.
-        if self.red:
-            self.midpoint = 16
-            self.blue = False
-        else:
-            self.midpoint = 17
-            self.blue = True
 
         self.inside_chokepoint = False
         self.outside_chokepoint = (-1, -1)
@@ -521,31 +527,11 @@ class OffenseAgent(ParentAgent):
 class DefenseAgent(ParentAgent):
 
     def registerInitialState(self, gameState):
+        print("defense agent")
+        ParentAgent.registerInitialState(self, gameState)
 
-        CaptureAgent.registerInitialState(self, gameState)
-        # Initialize here.
-
-        if gameState.isOnRedTeam(self.index):
-            self.midpoint = 16
-        else:
-            self.midpoint = 17
+        self.at_midpoint = False
 
     def chooseAction(self, gameState):
-
-
-        actions = gameState.getLegalActions(self.index)
         return 'Stop'
-        # return random.choice(actions)
 
-        collected_pellets = 0
-        # game.getRedFood()[node[0][0]][node[0][1]]:
-        x, y = gameState.getAgentPosition(self.index)
-        if gameState.getAgentState(self.index).numCarrying == 5:
-            path = self.aStarReturn(gameState, self.midpoint)
-        else:
-            path = self.aStarEat(gameState)
-        if path:
-            direction = path[0]
-            return direction
-        else:
-            return random.choice(actions)
