@@ -159,13 +159,13 @@ class ParentAgent(CaptureAgent):
                 if x > 0:
                     if game.hasWall(x - 1, y) and (x - 1, y) not in visited:
                         successors.append((x - 1, y, 'West'))
-                if x < 33:
+                if x < game.data.layout.width - 1:
                     if game.hasWall(x + 1, y) and (x + 1, y) not in visited:
                         successors.append((x + 1, y, 'East'))
                 if y > 0:
                     if game.hasWall(x, y - 1) and (x, y - 1) not in visited:
                         successors.append((x, y - 1, 'South'))
-                if y < 17:
+                if y < game.data.layout.height - 1:
                     if game.hasWall(x, y + 1) and (x, y + 1) not in visited:
                         successors.append((x, y + 1, 'North'))
                 for s in successors:
@@ -239,8 +239,8 @@ class ParentAgent(CaptureAgent):
         deadends = []
         chokepoints = []
         # For each point that's not a wall.
-        for x in range(33):
-            for y in range(17):
+        for x in range(game.data.layout.width):
+            for y in range(game.data.layout.height):
                 if not game.hasWall(x, y):
                     wall_count = 0
                     if game.hasWall(x - 1, y):
@@ -291,7 +291,7 @@ class ParentAgent(CaptureAgent):
                             else:
                                 if point not in deadends and not game.hasWall(point[0], point[1]):
                                     deadends.append(point)
-                if x != 0 and x != 33 and y != 0 and y != 17:
+                if x != 0 and x != game.data.layout.width - 1 and y != 0 and y != game.data.layout.height - 1:
                     start = 0
                     end = 0
                     # If the point is the potential start of a chokepoint.
@@ -339,8 +339,8 @@ class OffenseAgent(ParentAgent):
         self.outside_chokepoint = (-1, -1)
 
         self.food_to_eat = []
-        for x in range(33):
-            for y in range(17):
+        for x in range(gameState.data.layout.width - 1):
+            for y in range(gameState.data.layout.height - 1):
                 if gameState.hasFood(x, y):
                     if x >= 17 and self.red:
                         self.food_to_eat.append((x, y))
@@ -375,10 +375,10 @@ class OffenseAgent(ParentAgent):
         self.food_to_eat = []
         self.food_costs = []
         self.camppoints = []
-        for x in range(33):
+        for x in range(gameState.data.layout.width - 1):
             empty_points = []
             empty_count = 0
-            for y in range(17):
+            for y in range(gameState.data.layout.height - 1):
                 if gameState.hasFood(x, y):
                     if x >= 17 and self.red:
                         self.food_to_eat.append((x, y))
