@@ -20,7 +20,7 @@ import game
 
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first='OffenseAgent', second='OffenseAgent'):
+               first='OffenseAgent', second='DefenseAgent'):
     return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
@@ -31,11 +31,15 @@ class ParentAgent(CaptureAgent):
         return d
 
     def deadzone_heuristic(self, game, point, deadzones):
+        cost1 = 0
+        cost2 = 0
         if point in deadzones:
-            cost = self.bfsHeuristic(game, point, deadzones)
-            return cost
-        else:
-            return 0
+            cost1 = self.bfsHeuristicDZ(game, point, deadzones)
+        #if inside_chokepoint:
+            #cost2 = self.bfsHeuristicCP(game, point, outside_chokepoint)
+        #return cost1 + cost2
+        return cost1 * 2
+
 
     def aStar(self, game, start, goal):
 
@@ -71,46 +75,7 @@ class ParentAgent(CaptureAgent):
                                                    self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
-    def aStarEat(self, game):
-
-        visited = []  # Visited list to prevent expanding a node multiple times.
-        astar_priority_queue = util.PriorityQueue()
-        astar_priority_queue.push((game.getAgentPosition(self.index), [], 0), 0)
-
-        while not astar_priority_queue.isEmpty():
-            node = astar_priority_queue.pop()
-            current_position = node[0]
-            path = node[1]
-            cost = node[2]
-            if self.red:
-                if game.getBlueFood()[node[0][0]][node[0][1]]:
-                    return path, (node[0][0], node[0][1]), cost
-            elif self.blue:
-                if game.getRedFood()[node[0][0]][node[0][1]]:
-                    return path, (node[0][0], node[0][1]), cost
-            if current_position not in visited:
-                visited.append(current_position)
-                successors = []
-                x, y = node[0]
-                if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
-                    successors.append((x - 1, y, 'West'))
-                if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
-                    successors.append((x + 1, y, 'East'))
-                if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
-                    successors.append((x, y - 1, 'South'))
-                if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
-                    successors.append((x, y + 1, 'North'))
-                for s in successors:
-                    path_history = []
-                    path_history.extend(node[1])
-                    path_history.extend([s[2]])
-                    astar_priority_queue.push(((s[0], s[1]), path_history,
-                                               self.getMazeDistance(current_position, (s[0], s[1])) + node[
-                                                   2] + self.deadzone_heuristic(game, (s[0], s[1]), self.deadends)),
-                                              self.getMazeDistance(current_position, (s[0], s[1])) + node[
-                                                  2] + self.deadzone_heuristic(game, (s[0], s[1]), self.deadends))
-
-    def aStarEatHeuristic(self, game, goal):
+    def aStarEatHeuristic(self, game, goal, deadzones):
 
         visited = []  # Visited list to prevent expanding a node multiple times.
         astar_priority_queue = util.PriorityQueue()
@@ -141,9 +106,9 @@ class ParentAgent(CaptureAgent):
                     path_history.extend([s[2]])
                     astar_priority_queue.push(((s[0], s[1]), path_history,
                                                self.getMazeDistance(current_position, (s[0], s[1])) + node[
-                                                   2] + self.deadzone_heuristic(game, (s[0], s[1]), self.deadends)),
+                                                   2] + self.deadzone_heuristic(game, (s[0], s[1]), deadzones)),
                                               self.getMazeDistance(current_position, (s[0], s[1])) + node[
-                                                  2] + self.deadzone_heuristic(game, (s[0], s[1]), self.deadends))
+                                                  2] + self.deadzone_heuristic(game, (s[0], s[1]), deadzones))
 
     def aStarReturn(self, game, midpoint):
 
@@ -210,7 +175,8 @@ class ParentAgent(CaptureAgent):
                     bfs_queue.push(((s[0], s[1]), path_history))
         return False
 
-    def bfsHeuristic(self, game, start, deadzones):
+    def bfsHeuristicDZ(self, game, start, deadzones):
+
         visited = []
         bfs_queue = util.Queue()
         bfs_queue.push((start, [], 0))
@@ -218,6 +184,36 @@ class ParentAgent(CaptureAgent):
         while not bfs_queue.isEmpty():
             node = bfs_queue.pop()
             if node[0] != start and node[0] not in deadzones:
+                return node[2]
+            if node[0] not in visited:
+                visited.append(node[0])
+                successors = []
+                x, y = node[0]
+                if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+                    successors.append((x - 1, y, 'West'))
+                if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                    successors.append((x + 1, y, 'East'))
+                if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                    successors.append((x, y - 1, 'South'))
+                if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                    successors.append((x, y + 1, 'North'))
+                for s in successors:
+                    path_history = []
+                    path_history.extend(node[1])
+                    path_history.extend(s[2])
+                    bfs_queue.push(((s[0], s[1]), path_history,
+                                    self.getMazeDistance(node[0], (s[0], s[1])) + node[2]))
+        return 0
+
+    def bfsHeuristicCP(self, game, start, outside_chokepoint):
+
+        visited = []
+        bfs_queue = util.Queue()
+        bfs_queue.push((start, [], 0))
+
+        while not bfs_queue.isEmpty():
+            node = bfs_queue.pop()
+            if node[0] == outside_chokepoint:
                 return node[2]
             if node[0] not in visited:
                 visited.append(node[0])
@@ -331,6 +327,7 @@ class OffenseAgent(ParentAgent):
         for chokepoint in self.chokepoints:
             self.debugDraw(chokepoint, [0, 1, 0], clear=False)
 
+        # Set the midpoint depending on color.
         if self.red:
             self.midpoint = 16
             self.blue = False
@@ -338,6 +335,9 @@ class OffenseAgent(ParentAgent):
             self.midpoint = 17
             self.blue = True
 
+        self.inside_chokepoint = False
+        self.outside_chokepoint = (-1, -1)
+
         self.food_to_eat = []
         for x in range(33):
             for y in range(17):
@@ -347,19 +347,37 @@ class OffenseAgent(ParentAgent):
                     if x <= 16 and self.blue:
                         self.food_to_eat.append((x, y))
 
-        #for f in self.food_to_eat:
-            #self.debugDraw(f, [1, 1, 1], clear=False)
-
         self.at_midpoint = False
-        self.chasing_enemy = False
-        self.going_home = False
         self.foodcount = 0
 
     def chooseAction(self, gameState):
 
+        current_position = gameState.getAgentPosition(self.index)
+
+        if current_position == (1, 1) or current_position == (1, 2) or current_position == (
+        32, 16) or current_position == (32, 15):
+            self.inside_chokepoint = False
+            self.outside_chokepoint = (-1, -1)
+
+        if self.inside_chokepoint:
+            if current_position == self.outside_chokepoint:
+                self.inside_chokepoint = False
+                self.outside_chokepoint = (-1, -1)
+                self.at_midpoint = False
+
+        if current_position in self.chokepoints:
+            if (self.red and current_position[0] >= 17) or (
+                    self.blue and current_position[0] <= 16):
+                if not self.inside_chokepoint:
+                    self.inside_chokepoint = True
+                    self.outside_chokepoint = gameState.getAgentPosition(self.index)
+
         self.food_to_eat = []
         self.food_costs = []
+        self.camppoints = []
         for x in range(33):
+            empty_points = []
+            empty_count = 0
             for y in range(17):
                 if gameState.hasFood(x, y):
                     if x >= 17 and self.red:
@@ -368,8 +386,16 @@ class OffenseAgent(ParentAgent):
                     if x <= 16 and self.blue:
                         self.food_to_eat.append((x, y))
                         self.food_costs.append(self.getMazeDistance(gameState.getAgentPosition(self.index), (x, y)))
+                if not gameState.hasWall(x, y):
+                    empty_count += 1
+                    empty_points.append((x, y))
+            if empty_count == 2:
+                self.camppoints.append((empty_points[0], empty_points[1]))
+            elif empty_count == 1:
+                self.camppoints.append(empty_points[0])
         self.sorted_food = [x for _,x in sorted(zip(self.food_costs, self.food_to_eat))]
-        self.debugDraw(self.sorted_food[0], [0, 1, 0], clear=True)
+        # self.debugDraw(self.sorted_food[0], [0, 0, 1], clear=False)
+
 
         # Get agent  x and y for easy access later.
         x, y = gameState.getAgentPosition(self.index)
@@ -387,92 +413,109 @@ class OffenseAgent(ParentAgent):
             enemy_positions.append(gameState.getAgentPosition(i))
 
         # If we're not at the midpoint and not chasing an enemy, go to the midpoint.
-        if not self.at_midpoint and not self.chasing_enemy:
+        if not self.at_midpoint and ((self.red and x <= 16) or (self.blue and x >= 17)):
             path = self.aStarReturn(gameState, self.midpoint)
             if path:
                 direction = path[0]
                 return direction
         else:
-            """
-            # Otherwise, get the path the the closest pellet, and the enemies' path the the same pellet.
-            path, closest_pellet, cost = self.aStarEat(gameState)
-            enemy1_path, enemy1_cost = self.aStar(gameState, enemy_positions[0], closest_pellet)
-            enemy2_path, enemy2_cost = self.aStar(gameState, enemy_positions[1], closest_pellet)
-            enemy1_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[0])
-            enemy2_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[1])
-
-            # if (len(path) < len(enemy1_path)) and (len(path) < len(enemy2_path)) and not self.chasing_enemy:
-            # If we can make it to the pellet before the enemy, and we're not currently chasing, return that direction.
-            if (cost < enemy1_cost) and (cost < enemy2_cost) and not self.chasing_enemy or (
-                    enemy1_distance > 2 and enemy2_distance > 2):
-                if path:
-                    direction = path[0]
-                    self.going_home = False
-                    return direction
-            """
-
             food_checked = 0
             for food in self.sorted_food:
                 if food_checked == 5:
                     break
-                path, closest_pellet, cost = self.aStarEatHeuristic(gameState, food)
+                path, closest_pellet, cost = self.aStarEatHeuristic(gameState, food, self.deadends)
                 enemy1_path, enemy1_cost = self.aStar(gameState, enemy_positions[0], closest_pellet)
                 enemy2_path, enemy2_cost = self.aStar(gameState, enemy_positions[1], closest_pellet)
-                enemy1_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[0])
-                enemy2_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[1])
-                if (cost < enemy1_cost) and (cost < enemy2_cost) and not self.chasing_enemy or (
-                        enemy1_distance > 2 and enemy2_distance > 2):
+                # enemy1_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[0])
+                # enemy2_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[1])
+                # or (enemy1_distance > 2 and enemy2_distance > 2):
+                if (cost < enemy1_cost) and (cost < enemy2_cost):
                     if path:
                         direction = path[0]
                         self.going_home = False
+                        #self.debugDraw(food, [0, 0, 1], clear=True)
                         return direction
                 food_checked += 1
 
-
+            path = []
             # Set chasing enemy to false, in case we finished the chase. If we're still chasing it'll be set back later.
-            self.chasing_enemy = False
             if self.red:
                 # If we're on our own side..
                 if x <= 16:
                     # Set False so we return to the midpoint afterwards.
                     self.at_midpoint = False
                     # If an enemy is also on our side, go chase it since we're home.
-                    for enemy in enemy_positions:
-                        if enemy[0] <= 16:
-                            path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)[0]
-                            self.chasing_enemy = True
-                            self.going_home = False
-                            if path:
-                                direction = path[0]
-                                return direction
                 else:
                     # Return home if there's no pellet safe to eat or enemy
                     path = self.aStarReturn(gameState, self.midpoint)
-                    self.going_home = True
-                    if path:
-                        direction = path[0]
-                        return direction
             # Same logic but for blue team.
             elif self.blue:
                 if x >= 17:
                     self.at_midpoint = False
-                    for enemy in enemy_positions:
-                        if enemy[0] >= 17:
-                            path = self.aStar(gameState, gameState.getAgentPosition(self.index), enemy)[0]
-                            self.chasing_enemy = True
-                            self.going_home = False
-                            if path:
-                                direction = path[0]
-                                return direction
                 else:
                     path = self.aStarReturn(gameState, self.midpoint)
-                    self.going_home = True
-                    if path:
-                        direction = path[0]
-                        return direction
+
+            # If we're trying to return home.
+            if path:
+                direction = path[0]
+                if direction == 'North':
+                    a = 0
+                    b = 1
+                elif direction == 'South':
+                    a = 0
+                    b = -1
+                elif direction == 'East':
+                    a = 1
+                    b = 0
+                elif direction == 'West':
+                    a = -1
+                    b = 0
+                position = (x + a, y + b)
+                if self.getMazeDistance(position, enemy_positions[0]) > 1 and self.getMazeDistance(position, enemy_positions[1]) > 1:
+                    return direction
+                else:
+                    actions = []
+                    # check for walls
+                    escape_north = (x, y + 1)
+                    if not gameState.hasWall(escape_north[0], escape_north[1]):
+                        actions.append(("North", escape_north))
+                    escape_south = (x, y - 1)
+                    if not gameState.hasWall(escape_south[0], escape_south[1]):
+                        actions.append(("South", escape_south))
+                    escape_east = (x + 1, y)
+                    if not gameState.hasWall(escape_east[0], escape_east[1]):
+                        actions.append(("East", escape_east))
+                    escape_west = (x - 1, y)
+                    if not gameState.hasWall(escape_west[0], escape_west[1]):
+                        actions.append(("West", escape_west))
+                    if actions:
+                        random.shuffle(actions)
+                        for a in actions:
+                            if self.getMazeDistance(a[1], enemy_positions[0]) > 1 and self.getMazeDistance(a[1], enemy_positions[1]) > 1:
+                                if a[0] not in self.deadends:
+                                    return a[0]
+
+        actions = []
+        repo_north = (x, y + 1)
+        if not gameState.hasWall(repo_north[0], repo_north[1]):
+            actions.append(("North", repo_north))
+        repo_south = (x, y - 1)
+        if not gameState.hasWall(repo_south[0], repo_south[1]):
+            actions.append(("South", repo_south))
+        repo_east = (x + 1, y)
+        if not gameState.hasWall(repo_east[0], repo_east[1]):
+            actions.append(("East", repo_east))
+        repo_west = (x - 1, y)
+        if not gameState.hasWall(repo_west[0], repo_west[1]):
+            actions.append(("West", repo_west))
+        if actions:
+            random.shuffle(actions)
+            for a in actions:
+                if (self.red and a[1][0] <= 16) or (self.blue and a[1][0] >= 17):
+                    return a[0]
+
         # Agent will stop if no other actions we're appropriate to take.
         return 'Stop'
-
 
 
 class DefenseAgent(ParentAgent):
