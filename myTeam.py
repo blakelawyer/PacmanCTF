@@ -415,10 +415,10 @@ class OffenseAgent(ParentAgent):
         ParentAgent.registerInitialState(self, gameState)
 
         # DEBUG: SHOW DEADENDS AND CHOKEPOINTS ON SCREEN
-        for deadend in self.deadends:
-            self.debugDraw(deadend, [1, 0, 0], clear=False)
-        for chokepoint in self.chokepoints:
-            self.debugDraw(chokepoint, [0, 1, 0], clear=False)
+        #for deadend in self.deadends:
+            #self.debugDraw(deadend, [1, 0, 0], clear=False)
+       # for chokepoint in self.chokepoints:
+            #self.debugDraw(chokepoint, [0, 1, 0], clear=False)
 
         self.inside_chokepoint = False
         self.outside_chokepoint = (-1, -1)
@@ -440,8 +440,8 @@ class OffenseAgent(ParentAgent):
 
     def chooseAction(self, gameState):
 
-        if self.inside_chokepoint:
-            self.debugDraw(self.outside_chokepoint, [1, 1, 1], clear=False)
+        #if self.inside_chokepoint:
+            #self.debugDraw(self.outside_chokepoint, [1, 1, 1], clear=False)
 
         current_position = gameState.getAgentPosition(self.index)
 
@@ -449,14 +449,14 @@ class OffenseAgent(ParentAgent):
             self.inside_chokepoint = False
 
         if current_position == self.start_pos:
-            print("We died!")
+            #print("We died!")
             self.inside_chokepoint = False
             self.outside_chokepoint = (-1, -1)
 
         if self.inside_chokepoint:
-            print("Currently inside chokepoint!")
+            #print("Currently inside chokepoint!")
             if current_position == self.outside_chokepoint:
-                print("Exiting chokepoint!")
+                #print("Exiting chokepoint!")
                 self.inside_chokepoint = False
                 self.outside_chokepoint = (-1, -1)
                 self.at_midpoint = False
@@ -464,7 +464,7 @@ class OffenseAgent(ParentAgent):
             if (self.red and current_position[0] >= 17) or (
                     self.blue and current_position[0] <= 16):
                 if not self.inside_chokepoint:
-                    print("Entering chokepoint!")
+                    #print("Entering chokepoint!")
                     self.inside_chokepoint = True
                     self.outside_chokepoint = gameState.getAgentPosition(self.index)
 
@@ -661,13 +661,19 @@ class DefenseAgent(ParentAgent):
             if self.red:
                 # If we're on our own side..
                 if enemy[0] <= 16:
-                    path = self.aStar(gameState, current_position, enemy)[0]
-                    return path[0]
+                    #enemy_path, closest_food_Enemy = self.ucsEnemy(gameState, enemy)
+                    #path = self.aStarRepo(gameState, current_position, closest_food_Enemy)
+                    path = self.aStarRepo(gameState, current_position, enemy)
+                    if path:
+                        return path[0]
             # Same logic but for blue team.
             elif self.blue:
                 if enemy[0] >= 17:
-                    path = self.aStar(gameState, current_position, enemy)[0]
-                    return path[0]
+                    #enemy_path, closest_food_Enemy = self.ucsEnemy(gameState, enemy)
+                    #path = self.aStarRepo(gameState, current_position, closest_food_Enemy)
+                    path = self.aStarRepo(gameState, current_position, enemy)
+                    if path:
+                        return path[0]
 
         if current_position == self.closest_enemy_food:
             self.initial_point = True
@@ -676,10 +682,18 @@ class DefenseAgent(ParentAgent):
             if path:
                 return path[0]
         if aggressor_pos != (-1, -1):
-            if not gameState.hasWall(self.midpoint, aggressor_pos[1]):
-                path = self.aStarRepo(gameState, current_position, (self.midpoint, aggressor_pos[1]))
-                if path:
-                    return path[0]
+            if self.red:
+                for i in range(self.midpoint, 0, -1):
+                    if not gameState.hasWall(i, aggressor_pos[1]):
+                        path = self.aStarRepo(gameState, current_position, (i, aggressor_pos[1]))
+                        if path:
+                            return path[0]
+            elif self.blue:
+                for i in range(self.midpoint, gameState.data.layout.width - 1):
+                    if not gameState.hasWall(i, aggressor_pos[1]):
+                        path = self.aStarRepo(gameState, current_position, (i, aggressor_pos[1]))
+                        if path:
+                            return path[0]
 
         return 'Stop'
 
