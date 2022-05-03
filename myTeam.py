@@ -615,6 +615,8 @@ class DefenseAgent(ParentAgent):
         ParentAgent.registerInitialState(self, gameState)
 
         self.at_midpoint = False
+        self.aggressor = None
+        self.found_aggressor = False
 
         if self.red:
             enemy_indices = gameState.getBlueTeamIndices()
@@ -637,8 +639,23 @@ class DefenseAgent(ParentAgent):
         elif self.blue:
             enemy_indices = gameState.getRedTeamIndices()
         enemy_positions = []
+        j=0
+
         for i in enemy_indices:
             enemy_positions.append(gameState.getAgentPosition(i))
+            if not self.found_aggressor:
+                if self.blue:
+                    if enemy_positions[j][0] == 16:
+                        self.aggressor = i
+                        self.found_aggressor = True
+                elif self.red:
+                    if enemy_positions[j][0] == 17:
+                        self.aggressor = i
+                        self.found_aggressor = True
+                j+=1
+        aggressor_pos = (-1, -1)
+        if self.found_aggressor:
+            aggressor_pos = gameState.getAgentPosition(self.aggressor)
 
         for enemy in enemy_positions:
             if self.red:
@@ -655,9 +672,14 @@ class DefenseAgent(ParentAgent):
         if current_position == self.closest_enemy_food:
             self.initial_point = True
         if not self.initial_point:
-            path = self.aStar(gameState, current_position, self.closest_enemy_food)[0]
+            path = self.aStarRepo(gameState, current_position, self.closest_enemy_food)
             if path:
                 return path[0]
+        if aggressor_pos != (-1, -1):
+            if not gameState.hasWall(self.midpoint, aggressor_pos[1]):
+                path = self.aStarRepo(gameState, current_position, (self.midpoint, aggressor_pos[1]))
+                if path:
+                    return path[0]
 
         return 'Stop'
 
