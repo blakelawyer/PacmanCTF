@@ -124,6 +124,48 @@ class ParentAgent(CaptureAgent):
                                                    self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
+    def aStarRepo(self, game, start, goal):
+
+        visited = []  # Visited list to prevent expanding a node multiple times.
+        astar_priority_queue = util.PriorityQueue()
+        astar_priority_queue.push((start, [], 0), 0)
+        print("Start:", start)
+        print("Goal:", goal)
+        self.debugDraw(start, [0, 0, 1], clear=False)
+        self.debugDraw(goal, [0, 0, 1], clear=False)
+
+        while not astar_priority_queue.isEmpty():
+            node = astar_priority_queue.pop()
+            current_position = node[0]
+            path = node[1]
+            if current_position == goal:
+                print("Found goal!")
+                return path
+            else:
+                if current_position not in visited:
+                    visited.append(current_position)
+                    successors = []
+                    x, y = node[0]
+                    if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+                        if (self.red and x <= 16) or (self.blue and x >= 17):
+                            successors.append((x - 1, y, 'West'))
+                    if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                        if (self.red and x <= 16) or (self.blue and x >= 17):
+                            successors.append((x + 1, y, 'East'))
+                    if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                        if (self.red and x <= 16) or (self.blue and x >= 17):
+                            successors.append((x, y - 1, 'South'))
+                    if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                        if (self.red and x <= 16) or (self.blue and x >= 17):
+                            successors.append((x, y + 1, 'North'))
+                    for s in successors:
+                        path_history = []
+                        path_history.extend(node[1])
+                        path_history.extend([s[2]])
+                        astar_priority_queue.push(((s[0], s[1]), path_history,
+                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
+                                                  self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
+
     def aStarEatHeuristic(self, game, goal, deadzones):
 
         visited = []  # Visited list to prevent expanding a node multiple times.
@@ -387,6 +429,7 @@ class OffenseAgent(ParentAgent):
 
         self.at_midpoint = False
         self.foodcount = 0
+        self.reposition_path = []
 
     def chooseAction(self, gameState):
 
@@ -432,7 +475,8 @@ class OffenseAgent(ParentAgent):
             elif empty_count == 1:
                 self.camppoints.append(empty_points[0])
         self.sorted_food = [x for _,x in sorted(zip(self.food_costs, self.food_to_eat))]
-        # self.debugDraw(self.sorted_food[0], [0, 0, 1], clear=False)
+        #for f in self.sorted_food:
+            #self.debugDraw(f, [0, 0, 1], clear=False)
 
 
         # Get agent  x and y for easy access later.
@@ -451,7 +495,7 @@ class OffenseAgent(ParentAgent):
             enemy_positions.append(gameState.getAgentPosition(i))
 
         # If we're not at the midpoint and not chasing an enemy, go to the midpoint.
-        if not self.at_midpoint and ((self.red and x <= 16) or (self.blue and x >= 17)):
+        if not self.at_midpoint and not self.reposition_path and ((self.red and x <= 16) or (self.blue and x >= 17)):
             path = self.aStarReturn(gameState, self.midpoint)
             if path:
                 direction = path[0]
@@ -464,14 +508,15 @@ class OffenseAgent(ParentAgent):
                 path, closest_pellet, cost = self.aStarEatHeuristic(gameState, food, self.deadends)
                 enemy1_path, enemy1_cost = self.aStar(gameState, enemy_positions[0], closest_pellet)
                 enemy2_path, enemy2_cost = self.aStar(gameState, enemy_positions[1], closest_pellet)
-                # enemy1_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[0])
-                # enemy2_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[1])
+                enemy1_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[0])
+                enemy2_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[1])
                 # or (enemy1_distance > 2 and enemy2_distance > 2):
                 if (cost < enemy1_cost) and (cost < enemy2_cost):
                     if path:
                         direction = path[0]
                         self.going_home = False
                         #self.debugDraw(food, [0, 0, 1], clear=True)
+                        self.reposition_path = []
                         return direction
                 food_checked += 1
 
@@ -483,7 +528,7 @@ class OffenseAgent(ParentAgent):
                     # Set False so we return to the midpoint afterwards.
                     self.at_midpoint = False
                     # If an enemy is also on our side, go chase it since we're home.
-                else:
+                elif not self.reposition_path:
                     # Return home if there's no pellet safe to eat or enemy
                     path = self.aStarReturn(gameState, self.midpoint)
             # Same logic but for blue team.
@@ -533,6 +578,18 @@ class OffenseAgent(ParentAgent):
                                 if a[0] not in self.deadends:
                                     return a[0]
 
+        # Reposition!
+        if self.reposition_path:
+            return self.reposition_path.pop(0)
+        else:
+            repo_y = random.randint(1, gameState.data.layout.height - 2)
+            while gameState.hasWall(self.midpoint, repo_y):
+                repo_y = random.randint(1, gameState.data.layout.height - 1)
+            self.reposition_path = self.aStarRepo(gameState, current_position, (self.midpoint, repo_y))
+            if self.reposition_path:
+                return self.reposition_path.pop(0)
+
+        """
         actions = []
         repo_north = (x, y + 1)
         if not gameState.hasWall(repo_north[0], repo_north[1]):
@@ -551,6 +608,7 @@ class OffenseAgent(ParentAgent):
             for a in actions:
                 if (self.red and a[1][0] <= 16) or (self.blue and a[1][0] >= 17):
                     return a[0]
+        """
 
         # Agent will stop if no other actions were appropriate to take.
         return 'Stop'
@@ -559,7 +617,6 @@ class OffenseAgent(ParentAgent):
 class DefenseAgent(ParentAgent):
 
     def registerInitialState(self, gameState):
-        print("defense agent")
         ParentAgent.registerInitialState(self, gameState)
 
         self.at_midpoint = False
@@ -605,7 +662,6 @@ class DefenseAgent(ParentAgent):
         if not self.initial_point:
             path = self.aStar(gameState, current_position, self.closest_enemy_food)[0]
             if path:
-                print(path[0])
                 return path[0]
 
         return 'Stop'
