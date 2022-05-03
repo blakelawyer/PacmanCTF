@@ -32,6 +32,7 @@ class ParentAgent(CaptureAgent):
         # Find deadends and chokepoints.
         self.deadends, self.chokepoints = self.deadends_and_chokepoints(gameState)
 
+        # Set the midpoint depending on color.
         if self.red:
             self.midpoint = 16
             self.blue = False
@@ -54,6 +55,40 @@ class ParentAgent(CaptureAgent):
         #return cost1 + cost2
         return cost1 * 2
 
+    def ucsEnemy(self, game, start):
+
+        visited = []  # Visited list to prevent expanding a node multiple times.
+        astar_priority_queue = util.PriorityQueue()
+        astar_priority_queue.push((start, [], 0), 0)
+        while not astar_priority_queue.isEmpty():
+            node = astar_priority_queue.pop()
+            current_position = node[0]
+            path = node[1]
+            if self.red:
+                if game.getRedFood()[node[0][0]][node[0][1]]:
+                    return path, (node[0][0], node[0][1])
+            elif self.blue:
+                if game.getBlueFood()[node[0][0]][node[0][1]]:
+                    return path, (node[0][0], node[0][1])
+            if current_position not in visited:
+                visited.append(current_position)
+                successors = []
+                x, y = node[0]
+                if not game.hasWall(x - 1, y) and (x - 1, y) not in visited:
+                    successors.append((x - 1, y, 'West'))
+                if not game.hasWall(x + 1, y) and (x + 1, y) not in visited:
+                    successors.append((x + 1, y, 'East'))
+                if not game.hasWall(x, y - 1) and (x, y - 1) not in visited:
+                    successors.append((x, y - 1, 'South'))
+                if not game.hasWall(x, y + 1) and (x, y + 1) not in visited:
+                    successors.append((x, y + 1, 'North'))
+                for s in successors:
+                    path_history = []
+                    path_history.extend(node[1])
+                    path_history.extend([s[2]])
+                    astar_priority_queue.push(((s[0], s[1]), path_history,
+                                               self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
+                                              self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
     def aStar(self, game, start, goal):
 
@@ -255,7 +290,6 @@ class ParentAgent(CaptureAgent):
         # For each point that's not a wall.
         for x in range(game.data.layout.width):
             for y in range(game.data.layout.height):
-                print(x, y)
                 if not game.hasWall(x, y):
                     wall_count = 0
                     if game.hasWall(x - 1, y):
@@ -334,12 +368,10 @@ class OffenseAgent(ParentAgent):
         ParentAgent.registerInitialState(self, gameState)
 
         # DEBUG: SHOW DEADENDS AND CHOKEPOINTS ON SCREEN
-        for deadend in self.deadends:
+        '''for deadend in self.deadends:
             self.debugDraw(deadend, [1, 0, 0], clear=False)
         for chokepoint in self.chokepoints:
-            self.debugDraw(chokepoint, [0, 1, 0], clear=False)
-
-        # Set the midpoint depending on color.
+            self.debugDraw(chokepoint, [0, 1, 0], clear=False)'''
 
         self.inside_chokepoint = False
         self.outside_chokepoint = (-1, -1)
@@ -520,7 +552,7 @@ class OffenseAgent(ParentAgent):
                 if (self.red and a[1][0] <= 16) or (self.blue and a[1][0] >= 17):
                     return a[0]
 
-        # Agent will stop if no other actions we're appropriate to take.
+        # Agent will stop if no other actions were appropriate to take.
         return 'Stop'
 
 
@@ -532,6 +564,51 @@ class DefenseAgent(ParentAgent):
 
         self.at_midpoint = False
 
+        if self.red:
+            enemy_indices = gameState.getBlueTeamIndices()
+        elif self.blue:
+            enemy_indices = gameState.getRedTeamIndices()
+        enemy_positions = []
+        for i in enemy_indices:
+            enemy_positions.append(gameState.getAgentPosition(i))
+
+        enemy_path, self.closest_enemy_food = self.ucsEnemy(gameState, enemy_positions[0])
+        self.debugDraw(self.closest_enemy_food, [0, 0, 1], clear=False)
+        self.initial_point = False
+
+
     def chooseAction(self, gameState):
+        current_position = gameState.getAgentPosition(self.index)
+
+        if self.red:
+            enemy_indices = gameState.getBlueTeamIndices()
+        elif self.blue:
+            enemy_indices = gameState.getRedTeamIndices()
+        enemy_positions = []
+        for i in enemy_indices:
+            enemy_positions.append(gameState.getAgentPosition(i))
+
+        for enemy in enemy_positions:
+            if self.red:
+                # If we're on our own side..
+                if enemy[0] <= 16:
+                    path = self.aStar(gameState, current_position, enemy)[0]
+                    return path[0]
+            # Same logic but for blue team.
+            elif self.blue:
+                if enemy[0] >= 17:
+                    path = self.aStar(gameState, current_position, enemy)[0]
+                    return path[0]
+
+        if current_position == self.closest_enemy_food:
+            self.initial_point = True
+        if not self.initial_point:
+            path = self.aStar(gameState, current_position, self.closest_enemy_food)[0]
+            if path:
+                print(path[0])
+                return path[0]
+
         return 'Stop'
+
+
 
