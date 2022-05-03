@@ -45,15 +45,19 @@ class ParentAgent(CaptureAgent):
         d = self.distancer.getDistance(pos1, pos2)
         return d
 
-    def deadzone_heuristic(self, game, point, deadzones):
+    def deadzone_heuristic(self, game, point, deadzones, chokepoints, inside_chokepoint, outside_chokepoint):
         cost1 = 0
         cost2 = 0
+        cost3 = 0
         if point in deadzones:
             cost1 = self.bfsHeuristicDZ(game, point, deadzones)
-        #if inside_chokepoint:
-            #cost2 = self.bfsHeuristicCP(game, point, outside_chokepoint)
-        #return cost1 + cost2
-        return cost1 * 2
+        if inside_chokepoint:
+            cost2 = self.bfsHeuristicCP(game, point, outside_chokepoint)
+        if point in chokepoints:
+            cost3 = 3
+        if cost1 == 1:
+            cost1 += 2
+        return (cost1 * 2) + (cost2 * 2) + (cost3 * 2)
 
     def ucsEnemy(self, game, start):
 
@@ -129,17 +133,12 @@ class ParentAgent(CaptureAgent):
         visited = []  # Visited list to prevent expanding a node multiple times.
         astar_priority_queue = util.PriorityQueue()
         astar_priority_queue.push((start, [], 0), 0)
-        print("Start:", start)
-        print("Goal:", goal)
-        self.debugDraw(start, [0, 0, 1], clear=False)
-        self.debugDraw(goal, [0, 0, 1], clear=False)
 
         while not astar_priority_queue.isEmpty():
             node = astar_priority_queue.pop()
             current_position = node[0]
             path = node[1]
             if current_position == goal:
-                print("Found goal!")
                 return path
             else:
                 if current_position not in visited:
@@ -166,7 +165,7 @@ class ParentAgent(CaptureAgent):
                                                    self.getMazeDistance(current_position, (s[0], s[1])) + node[2]),
                                                   self.getMazeDistance(current_position, (s[0], s[1])) + node[2])
 
-    def aStarEatHeuristic(self, game, goal, deadzones):
+    def aStarEatHeuristic(self, game, goal, deadzones, chokepoints, inside_chokepoint, outside_chokepoint):
 
         visited = []  # Visited list to prevent expanding a node multiple times.
         astar_priority_queue = util.PriorityQueue()
@@ -197,9 +196,9 @@ class ParentAgent(CaptureAgent):
                     path_history.extend([s[2]])
                     astar_priority_queue.push(((s[0], s[1]), path_history,
                                                self.getMazeDistance(current_position, (s[0], s[1])) + node[
-                                                   2] + self.deadzone_heuristic(game, (s[0], s[1]), deadzones)),
+                                                   2] + self.deadzone_heuristic(game, (s[0], s[1]), deadzones, chokepoints, inside_chokepoint, outside_chokepoint)),
                                               self.getMazeDistance(current_position, (s[0], s[1])) + node[
-                                                  2] + self.deadzone_heuristic(game, (s[0], s[1]), deadzones))
+                                                  2] + self.deadzone_heuristic(game, (s[0], s[1]), deadzones, chokepoints, inside_chokepoint, outside_chokepoint))
 
     def aStarReturn(self, game, midpoint):
 
@@ -268,6 +267,9 @@ class ParentAgent(CaptureAgent):
 
     def bfsHeuristicDZ(self, game, start, deadzones):
 
+        if (self.red and start[0] <= 16) or (self.blue and start[0] >= 17):
+            return 0
+
         visited = []
         bfs_queue = util.Queue()
         bfs_queue.push((start, [], 0))
@@ -297,6 +299,9 @@ class ParentAgent(CaptureAgent):
         return 0
 
     def bfsHeuristicCP(self, game, start, outside_chokepoint):
+
+        if (self.red and start[0] <= 16) or (self.blue and start[0] >= 17):
+            return 0
 
         visited = []
         bfs_queue = util.Queue()
@@ -410,13 +415,14 @@ class OffenseAgent(ParentAgent):
         ParentAgent.registerInitialState(self, gameState)
 
         # DEBUG: SHOW DEADENDS AND CHOKEPOINTS ON SCREEN
-        '''for deadend in self.deadends:
+        for deadend in self.deadends:
             self.debugDraw(deadend, [1, 0, 0], clear=False)
         for chokepoint in self.chokepoints:
-            self.debugDraw(chokepoint, [0, 1, 0], clear=False)'''
+            self.debugDraw(chokepoint, [0, 1, 0], clear=False)
 
         self.inside_chokepoint = False
         self.outside_chokepoint = (-1, -1)
+        self.start_pos = gameState.getAgentPosition(self.index)
 
         self.food_to_eat = []
         for x in range(gameState.data.layout.width - 1):
@@ -430,26 +436,35 @@ class OffenseAgent(ParentAgent):
         self.at_midpoint = False
         self.foodcount = 0
         self.reposition_path = []
+        self.history = []
 
     def chooseAction(self, gameState):
 
+        if self.inside_chokepoint:
+            self.debugDraw(self.outside_chokepoint, [1, 1, 1], clear=False)
+
         current_position = gameState.getAgentPosition(self.index)
 
-        if current_position == (1, 1) or current_position == (1, 2) or current_position == (
-        32, 16) or current_position == (32, 15):
+        if (self.red and current_position[0] <= 16) or (self.red and current_position[0] >= 17):
+            self.inside_chokepoint = False
+
+        if current_position == self.start_pos:
+            print("We died!")
             self.inside_chokepoint = False
             self.outside_chokepoint = (-1, -1)
 
         if self.inside_chokepoint:
+            print("Currently inside chokepoint!")
             if current_position == self.outside_chokepoint:
+                print("Exiting chokepoint!")
                 self.inside_chokepoint = False
                 self.outside_chokepoint = (-1, -1)
                 self.at_midpoint = False
-
-        if current_position in self.chokepoints:
+        elif current_position in self.chokepoints:
             if (self.red and current_position[0] >= 17) or (
                     self.blue and current_position[0] <= 16):
                 if not self.inside_chokepoint:
+                    print("Entering chokepoint!")
                     self.inside_chokepoint = True
                     self.outside_chokepoint = gameState.getAgentPosition(self.index)
 
@@ -503,9 +518,9 @@ class OffenseAgent(ParentAgent):
         else:
             food_checked = 0
             for food in self.sorted_food:
-                if food_checked == 5:
+                if food_checked == 5 or (self.inside_chokepoint and food_checked > 0):
                     break
-                path, closest_pellet, cost = self.aStarEatHeuristic(gameState, food, self.deadends)
+                path, closest_pellet, cost = self.aStarEatHeuristic(gameState, food, self.deadends, self.chokepoints, self.inside_chokepoint, self.outside_chokepoint)
                 enemy1_path, enemy1_cost = self.aStar(gameState, enemy_positions[0], closest_pellet)
                 enemy2_path, enemy2_cost = self.aStar(gameState, enemy_positions[1], closest_pellet)
                 enemy1_distance = self.getMazeDistance(gameState.getAgentPosition(self.index), enemy_positions[0])
@@ -517,7 +532,8 @@ class OffenseAgent(ParentAgent):
                         self.going_home = False
                         #self.debugDraw(food, [0, 0, 1], clear=True)
                         self.reposition_path = []
-                        return direction
+                        if gameState.getAgentState(self.index).numCarrying < 5:
+                            return direction
                 food_checked += 1
 
             path = []
@@ -588,27 +604,6 @@ class OffenseAgent(ParentAgent):
             self.reposition_path = self.aStarRepo(gameState, current_position, (self.midpoint, repo_y))
             if self.reposition_path:
                 return self.reposition_path.pop(0)
-
-        """
-        actions = []
-        repo_north = (x, y + 1)
-        if not gameState.hasWall(repo_north[0], repo_north[1]):
-            actions.append(("North", repo_north))
-        repo_south = (x, y - 1)
-        if not gameState.hasWall(repo_south[0], repo_south[1]):
-            actions.append(("South", repo_south))
-        repo_east = (x + 1, y)
-        if not gameState.hasWall(repo_east[0], repo_east[1]):
-            actions.append(("East", repo_east))
-        repo_west = (x - 1, y)
-        if not gameState.hasWall(repo_west[0], repo_west[1]):
-            actions.append(("West", repo_west))
-        if actions:
-            random.shuffle(actions)
-            for a in actions:
-                if (self.red and a[1][0] <= 16) or (self.blue and a[1][0] >= 17):
-                    return a[0]
-        """
 
         # Agent will stop if no other actions were appropriate to take.
         return 'Stop'
